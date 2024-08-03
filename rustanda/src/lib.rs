@@ -36,12 +36,14 @@ fn file_exists_and_is_csv(file_path: &str) -> Result<bool, io::Error> {
     Ok(metadata.is_file() && file_path.ends_with(".csv"))
 }
 
+
+
 #[cfg(test)]
 mod test {
     use super::*;
 
-    const FILE_PATH_CSV: &str = "C:\\Users\\Edward\\Desktop\\Datasets\\k-means\\abalone.csv";
-    const FILE_PATH_TXT: &str = "C:\\Users\\Edward\\Desktop\\Rustanda\\rustanda\\test.txt";
+    const FILE_PATH_CSV: &str = "..\\..\\Datasets\\k-means\\abalone.csv";
+    const FILE_PATH_TXT: &str = ".\\test.txt";
 
     #[test]
     fn read_csv_success() {
