@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Read, BufRead, BufReader};
+use std::any::Any;
 
 pub fn read_csv(file_path: &str) -> Result<Vec<String>, io::Error> {
     // Check if file is fine
@@ -43,14 +44,29 @@ pub fn parse_csv_data(content: &File) -> Result<Vec<String>, io::Error> {
     let reader = BufReader::new(content);
     let mut lines = Vec::new();
     let mut first_line: String = String::new();
+    let mut parsed_csv_data: HashMap<String, Box<dyn Any>> = std::collections::HashMap::new();
+    let mut delimiter: char = ',';
+    let mut column_name: Vec<String> = Vec::new();
 
     for line in reader.lines() {
         match line {
             Ok(line) => {
                 if first_line.is_empty() {
-                    first_line = line;
+                    first_line = line.clone();
+                    delimiter = match determine_delimiter(&first_line) {
+                        Ok(delimiter)   => delimiter,
+                        Err(e) => {
+                             eprint!("Failed to determine delimiter");
+                             return Err(e);
+                        },
+
+                    };
+                    column_name = first_line.split(delimiter).map(|part: &str| part.to_string()).collect();
                 } else {
-                    //println!("Read line: '{}'", line); // Debugging output
+                    let column_values: Vec<String> = line.split(delimiter).map(|part: &str| part.to_string()).collect();
+                    for (idx, value) in column_values.iter().enumerate() {
+                        parsed_csv_data.entry(column_name[idx].clone());
+                    }
                     lines.push(line); // Add line to the vector
                 }
             },
@@ -93,17 +109,17 @@ pub fn parse_csv_data(content: &File) -> Result<Vec<String>, io::Error> {
 
     return Ok(column_name);*/
 
-fn determine_delimiter(first_line: String) -> Result<char, io::Error>{
+fn determine_delimiter(first_line: &String) -> Result<char, io::Error>{
 
     // remove extraneos whitespace
     // let first_line: &str = first_line.trim();
     let possible_delimiter: [char; 5] = [',', ';', '\t', '|', ':'];
-    println!("First Line {}", first_line);
+    //println!("First Line {}", first_line);
     let mut counts: HashMap<_, _> = std::collections::HashMap::new();
     for delimiter in &possible_delimiter {
         let count: usize = first_line.matches(*delimiter).count();
         counts.insert(delimiter.clone(), count);
-        println!("Count {} Delimiter {}", count, delimiter);
+        //println!("Count {} Delimiter {}", count, delimiter);
     }
 
     // Find delimiter with maximum count
@@ -188,7 +204,7 @@ mod test {
         }
 
         // Determine the delimiter
-        let result = determine_delimiter(first_line);
+        let result = determine_delimiter(&first_line);
         match result {
             Ok(delimiter) => assert_eq!(delimiter, ','),
             Err(e) => eprintln!("Failed to determine delimiter: {}", e),
