@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::{self};
 use std::collections::HashMap;
 
-const FILE_PATH_CSV: &str = "C:\\Users\\Edward\\Desktop\\Datasets\\k-means\\abalone.csv";
+const FILE_PATH_CSV: &str = "C:\\Users\\Edward\\Desktop\\Datasets\\k-means\\movielens1m.csv";
 
 fn print_parsed_csv_data(data: &HashMap<String, Vec<ParsedValue>>) {
     for (column_name, values) in data.iter() {
@@ -21,11 +21,11 @@ fn print_parsed_csv_data(data: &HashMap<String, Vec<ParsedValue>>) {
 
 fn main() -> io::Result<()> {
     // Ensure the path to your CSV file is correct
-    let file = File::open(FILE_PATH_CSV)?;
+    //let file = File::open(FILE_PATH_CSV)?;
     
     let csv_data = read_csv(FILE_PATH_CSV)?;
 
-    print_parsed_csv_data(&csv_data);
+    //print_parsed_csv_data(&csv_data);
 
     /*if csv_data.is_empty() {
         println!("The file contains no lines.");
