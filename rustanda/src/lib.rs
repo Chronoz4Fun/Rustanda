@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{self, Read, BufRead, BufReader};
 use std::any::Any;
 
-pub fn read_csv(file_path: &str) -> Result<Vec<String>, io::Error> {
+pub fn read_csv(file_path: &str) -> Result<HashMap<String, Vec<ParsedValue>>, io::Error> {
     // Check if file is fine
     let check: Result<bool, io::Error> = file_exists_and_is_csv(file_path);
     if check.is_ok() {
@@ -18,7 +18,7 @@ pub fn read_csv(file_path: &str) -> Result<Vec<String>, io::Error> {
         // Open the file
         let file: File = File::open(file_path)?;
 
-        let parsed_csv: Vec<String> = match parse_csv_data(&file) {
+        let parsed_csv: HashMap<String, Vec<ParsedValue>> = match parse_csv_data(&file) {
             Ok(parsed_csv) => parsed_csv,
             Err(e) => {
                 eprintln!("Failed to parse the csv data: {}", e);
@@ -40,13 +40,20 @@ fn file_exists_and_is_csv(file_path: &str) -> Result<bool, io::Error> {
     Ok(metadata.is_file() && file_path.ends_with(".csv"))
 }
 
-pub fn parse_csv_data(content: &File) -> Result<Vec<String>, io::Error> {
+#[derive(Debug, Clone)]
+pub enum ParsedValue {
+    Integer(i32),
+    Float(f64),
+    Boolean(bool),
+    String(String),
+}
+
+pub fn parse_csv_data(content: &File) -> Result<HashMap<String, Vec<ParsedValue>>, io::Error> {
     let reader = BufReader::new(content);
-    let mut lines = Vec::new();
-    let mut first_line: String = String::new();
-    let mut parsed_csv_data: HashMap<String, Box<dyn Any>> = std::collections::HashMap::new();
-    let mut delimiter: char = ',';
-    let mut column_name: Vec<String> = Vec::new();
+    let mut first_line = String::new();
+    let mut parsed_csv_data: HashMap<String, Vec<ParsedValue>> = HashMap::new();
+    let mut delimiter = ',';
+    let mut column_names: Vec<String> = Vec::new();
 
     for line in reader.lines() {
         match line {
@@ -54,20 +61,27 @@ pub fn parse_csv_data(content: &File) -> Result<Vec<String>, io::Error> {
                 if first_line.is_empty() {
                     first_line = line.clone();
                     delimiter = match determine_delimiter(&first_line) {
-                        Ok(delimiter)   => delimiter,
+                        Ok(delimiter) => delimiter,
                         Err(e) => {
-                             eprint!("Failed to determine delimiter");
-                             return Err(e);
-                        },
-
+                            eprintln!("Failed to determine delimiter");
+                            return Err(e);
+                        }
                     };
-                    column_name = first_line.split(delimiter).map(|part: &str| part.to_string()).collect();
+                    column_names = first_line.split(delimiter)
+                        .map(|part| part.to_string())
+                        .collect();
                 } else {
-                    let column_values: Vec<String> = line.split(delimiter).map(|part: &str| part.to_string()).collect();
+                    let column_values: Vec<String> = line.split(delimiter)
+                        .map(|part| part.to_string())
+                        .collect();
                     for (idx, value) in column_values.iter().enumerate() {
-                        parsed_csv_data.entry(column_name[idx].clone());
+                        let parsed_value = find_data_type(value);
+
+                        // Insert the parsed value into the HashMap
+                        parsed_csv_data.entry(column_names[idx].clone())
+                            .and_modify(|vec| vec.push(parsed_value.clone()))
+                            .or_insert_with(|| vec![parsed_value.clone()]);
                     }
-                    lines.push(line); // Add line to the vector
                 }
             },
             Err(e) => {
@@ -76,38 +90,21 @@ pub fn parse_csv_data(content: &File) -> Result<Vec<String>, io::Error> {
         }
     }
 
-    //println!("Total lines collected: {}", lines.len()); // Debugging output to check the count
-    Ok(lines)
+    Ok(parsed_csv_data)
 }
 
-    /*loop {
-        first_line.clear(); // Clear the buffer before the next read
-        let bytes_read = reader.read_line(&mut first_line)?;
-
-        // Check if we reached the end of the file
-        if bytes_read == 0 {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "EoF reached without seeing a line with content",
-            ));
-        }
-
-        // Break the loop if a non-empty line is found
-        if !first_line.trim().is_empty() {
-            break;
-        }
+// Dummy implementations of find_data_type and determine_delimiter for example purposes.
+fn find_data_type(value: &str) -> ParsedValue {
+    if let Ok(int_value) = value.parse::<i32>() {
+        ParsedValue::Integer(int_value)
+    } else if let Ok(float_value) = value.parse::<f64>() {
+        ParsedValue::Float(float_value)
+    } else if let Ok(bool_value) = value.parse::<bool>() {
+        ParsedValue::Boolean(bool_value)
+    } else {
+        ParsedValue::String(value.to_string())
     }
-
-
-    let delimiter = match determine_delimiter(first_line.clone()) {
-        Ok(detected_delimiter) =>  detected_delimiter,
-        Err(e) => { eprintln!("Failed to determine delimiter: {}", e); return Err(e);},
-    };
-
-    let column_name: Vec<String> = first_line.split(delimiter).map(|part: &str| part.to_string()).collect();
-
-
-    return Ok(column_name);*/
+}
 
 fn determine_delimiter(first_line: &String) -> Result<char, io::Error>{
 
@@ -127,7 +124,6 @@ fn determine_delimiter(first_line: &String) -> Result<char, io::Error>{
 
     return Ok(detected_delimiter);
 }
-
 
 
 #[cfg(test)]
@@ -210,4 +206,54 @@ mod test {
             Err(e) => eprintln!("Failed to determine delimiter: {}", e),
         }
     }
+
+    #[test]
+    fn test_parse_csv_data_columns_exist() {
+        // Set the path to your CSV file here
+        let file = File::open(FILE_PATH_CSV).expect("Failed to open the file");
+
+        let parsed_result = parse_csv_data(&file).expect("Failed to parse CSV data");
+
+        let expected_columns = vec![
+            "Type".to_string(),
+            "LongestShell".to_string(),
+            "Diameter".to_string(),
+            "Height".to_string(),
+            "WholeWeight".to_string(),
+            "ShuckedWeight".to_string(),
+            "VisceraWeight".to_string(),
+            "ShellWeight".to_string(),
+            "Rings".to_string(),
+        ];
+
+        // Check that all expected columns are keys in the parsed HashMap
+        for column in expected_columns.iter() {
+            assert!(parsed_result.contains_key(column), "Column '{}' is missing in the parsed data", column);
+        }
+    }
+
+    #[test]
+    fn test_parse_csv_data_values_count() {
+        // Set the path to your CSV file here
+        let file = File::open(FILE_PATH_CSV).expect("Failed to open the file");
+
+        let parsed_result = parse_csv_data(&file).expect("Failed to parse CSV data");
+
+        // Expected total number of values in all columns
+        let expected_total_values = 4177;
+
+        // Calculate the total number of values in the parsed data
+        let mut total_values = 0;
+        for values in parsed_result.values() {
+            total_values += values.len();
+        }
+
+        // Assert that the total number of values is as expected
+        assert_eq!(
+            total_values, expected_total_values * 9,
+            "Total number of values does not match: expected {}, got {}",
+            expected_total_values * 9, total_values
+        );
+    }
+
 }
