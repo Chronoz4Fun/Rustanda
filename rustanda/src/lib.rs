@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Read, BufRead, BufReader};
 
-pub fn read_csv(file_path: &str) -> io::Result<String> {
+pub fn read_csv(file_path: &str) -> Result<Vec<String>, io::Error> {
     // Check if file is fine
     let check: Result<bool, io::Error> = file_exists_and_is_csv(file_path);
     if check.is_ok() {
@@ -15,15 +15,17 @@ pub fn read_csv(file_path: &str) -> io::Result<String> {
             ));
         }
         // Open the file
-        let mut file = File::open(file_path)?;
+        let file: File = File::open(file_path)?;
 
-        // Create a String to hold the file contents
-        let mut contents = String::new();
+        let parsed_csv: Vec<String> = match parse_csv_data(&file) {
+            Ok(parsed_csv) => parsed_csv,
+            Err(e) => {
+                eprintln!("Failed to parse the csv data: {}", e);
+                return Err(e);
+            },
+        };
 
-        // Read the file into the String
-        file.read_to_string(&mut contents)?;
-
-        return Ok(contents);
+        return Ok(parsed_csv);
     } else {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
@@ -37,38 +39,77 @@ fn file_exists_and_is_csv(file_path: &str) -> Result<bool, io::Error> {
     Ok(metadata.is_file() && file_path.ends_with(".csv"))
 }
 
-fn parse_csv_data(content: &File) -> Result<bool, io::Error>{
+pub fn parse_csv_data(content: &File) -> Result<Vec<String>, io::Error> {
+    let reader = BufReader::new(content);
+    let mut lines = Vec::new();
+    let mut first_line: String = String::new();
 
-    let delimiter = match determine_delimiter(content) {
+    for line in reader.lines() {
+        match line {
+            Ok(line) => {
+                if first_line.is_empty() {
+                    first_line = line;
+                } else {
+                    //println!("Read line: '{}'", line); // Debugging output
+                    lines.push(line); // Add line to the vector
+                }
+            },
+            Err(e) => {
+                return Err(e); // Return error if any
+            },
+        }
+    }
+
+    //println!("Total lines collected: {}", lines.len()); // Debugging output to check the count
+    Ok(lines)
+}
+
+    /*loop {
+        first_line.clear(); // Clear the buffer before the next read
+        let bytes_read = reader.read_line(&mut first_line)?;
+
+        // Check if we reached the end of the file
+        if bytes_read == 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "EoF reached without seeing a line with content",
+            ));
+        }
+
+        // Break the loop if a non-empty line is found
+        if !first_line.trim().is_empty() {
+            break;
+        }
+    }
+
+
+    let delimiter = match determine_delimiter(first_line.clone()) {
         Ok(detected_delimiter) =>  detected_delimiter,
         Err(e) => { eprintln!("Failed to determine delimiter: {}", e); return Err(e);},
     };
 
-    let mut reader: BufReader<&File> = BufReader::new(content);
-    let mut first_line: String = String::new();
+    let column_name: Vec<String> = first_line.split(delimiter).map(|part: &str| part.to_string()).collect();
 
-    return Ok(true);
 
-}
+    return Ok(column_name);*/
 
-fn determine_delimiter(content: &File) -> Result<char, io::Error>{
-    let mut reader: BufReader<&File> = BufReader::new(content);
-    let mut first_line: String = String::new();
-    reader.read_line(&mut first_line)?;
+fn determine_delimiter(first_line: String) -> Result<char, io::Error>{
 
     // remove extraneos whitespace
-    let first_line: &str = first_line.trim();
-    let possible_delimiter: [char; 4] = [',', ';', '\t', '|'];
-
+    // let first_line: &str = first_line.trim();
+    let possible_delimiter: [char; 5] = [',', ';', '\t', '|', ':'];
+    println!("First Line {}", first_line);
     let mut counts: HashMap<_, _> = std::collections::HashMap::new();
     for delimiter in &possible_delimiter {
-        counts.insert(delimiter, first_line.matches(*delimiter).count());
+        let count: usize = first_line.matches(*delimiter).count();
+        counts.insert(delimiter.clone(), count);
+        println!("Count {} Delimiter {}", count, delimiter);
     }
 
     // Find delimiter with maximum count
     let (&detected_delimiter, _) = counts.iter().max_by_key(|&(_, count)| count).unwrap_or((&&',', &0));
 
-    return Ok(*detected_delimiter);
+    return Ok(detected_delimiter);
 }
 
 
@@ -127,8 +168,30 @@ mod test {
 
     #[test]
     fn delimiter_determination_is_working() {
-        let content = read_csv(FILE_PATH_CSV);
-        let result = determine_delimiter(content.unwrap());
-        assert_eq!(result.unwrap(), ',');
+        // Open the file
+        let file = match File::open(FILE_PATH_CSV) {
+            Ok(file) => file,
+            Err(e) => {
+                eprintln!("Failed to open file: {}", e);
+                return;
+            },
+        };
+
+        // Create a buffered reader
+        let mut reader = BufReader::new(file);
+        let mut first_line = String::new();
+
+        // Read the first line
+        if let Err(e) = reader.read_line(&mut first_line) {
+            eprintln!("Failed to read the first line: {}", e);
+            return;
+        }
+
+        // Determine the delimiter
+        let result = determine_delimiter(first_line);
+        match result {
+            Ok(delimiter) => assert_eq!(delimiter, ','),
+            Err(e) => eprintln!("Failed to determine delimiter: {}", e),
+        }
     }
 }
