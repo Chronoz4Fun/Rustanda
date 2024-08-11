@@ -1,9 +1,13 @@
-use rustanda::{read_csv, parse_csv_data, ParsedValue};
+use rustanda::{read_csv, ParsedValue};
 use std::fs::File;
 use std::io::{self};
 use std::collections::HashMap;
 
+<<<<<<< HEAD
 const FILE_PATH_CSV: &str = "C:\\Users\\Edward\\Desktop\\Datasets\\k-means\\movielens1m.csv";
+=======
+const FILE_PATH_CSV: &str = "C:\\Users\\Edward\\Desktop\\Datasets\\k-means\\accidents.csv";
+>>>>>>> read_file_logic_WIP
 
 fn print_parsed_csv_data(data: &HashMap<String, Vec<ParsedValue>>) {
     for (column_name, values) in data.iter() {

@@ -71,12 +71,11 @@ pub fn parse_csv_data(content: &File) -> Result<HashMap<String, Vec<ParsedValue>
                         .map(|part| part.to_string())
                         .collect();
                 } else {
-                    let column_values: Vec<String> = line.split(delimiter)
+                    let column_values: Vec<String> = split_csv_line(&line, delimiter).iter()
                         .map(|part| part.to_string())
                         .collect();
                     for (idx, value) in column_values.iter().enumerate() {
                         let parsed_value = find_data_type(value);
-
                         // Insert the parsed value into the HashMap
                         parsed_csv_data.entry(column_names[idx].clone())
                             .and_modify(|vec| vec.push(parsed_value.clone()))
@@ -104,6 +103,36 @@ fn find_data_type(value: &str) -> ParsedValue {
     } else {
         ParsedValue::String(value.to_string())
     }
+}
+
+fn split_csv_line(line: &str, delimiter: char) -> Vec<String> {
+    let mut fields: Vec<_> = Vec::new();
+    let mut current_field: String = String::new();
+    let mut in_quotes = false;
+
+    let chars: Vec<char> = line.chars().collect();
+    let mut i: usize = 0;
+
+    while i < chars.len() {
+        let c: char = chars[i];
+
+        if c == '"' {
+            // Toggle the in_quotes flag
+            in_quotes = !in_quotes;
+        } else if c == delimiter && !in_quotes {
+            // If not inside quotes, the comma marks the end of a field
+            fields.push(current_field.trim().to_string());
+            current_field.clear();
+        }  else {
+            // Otherwise, add the character to the current field
+            current_field.push(c);
+        }
+        i += 1;
+    }
+    // Add the last field
+    fields.push(current_field.trim().to_string());
+
+    fields
 }
 
 fn determine_delimiter(first_line: &String) -> Result<char, io::Error>{
