@@ -3,7 +3,11 @@ use std::fs::File;
 use std::io::{self};
 use std::collections::HashMap;
 
+<<<<<<< Updated upstream
 const FILE_PATH_CSV: &str = "C:\\Users\\Edward\\Desktop\\Datasets\\k-means\\abalone.csv";
+=======
+const FILE_PATH_CSV: &str = "C:\\Users\\Edward\\Desktop\\Datasets\\k-means\\spotify.csv";
+>>>>>>> Stashed changes
 
 fn print_parsed_csv_data(data: &HashMap<String, Vec<ParsedValue>>) {
     for (column_name, values) in data.iter() {
