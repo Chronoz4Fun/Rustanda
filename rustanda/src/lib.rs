@@ -2,8 +2,7 @@
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{self, Read, BufRead, BufReader};
-use std::any::Any;
+use std::io::{self, BufRead, BufReader};
 
 pub fn read_csv(file_path: &str) -> Result<HashMap<String, Vec<ParsedValue>>, io::Error> {
     // Check if file is fine
